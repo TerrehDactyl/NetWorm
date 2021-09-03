@@ -133,6 +133,7 @@ def bruteforce_ssh(host, userlist, wordlist):
     	        connection = connect_to_ssh(host, user, password)
     	        print(connection)
     	        time.sleep(5)
+        rewind(passfile)
     #Bruteforces passwords using root as the username
     except:
         for password in passfile:
